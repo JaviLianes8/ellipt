@@ -1,7 +1,9 @@
-"""Truncate strings with an ellipsis at the start, middle or end, by character count or display width"""
+"""Truncate strings with an ellipsis at the start, middle or end."""
 
 from __future__ import annotations
 
+from ._shorten import Where, shorten
+
 __version__ = "0.1.0"
 
-__all__: list[str] = []
+__all__ = ["Where", "shorten"]

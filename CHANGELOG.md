@@ -8,4 +8,5 @@ All notable changes to this project are documented here. The format follows
 
 ## [0.1.0]
 
-- First release.
+- First release: `shorten` truncates a string with an ellipsis at the start,
+  middle or end, by character count or display width, with a configurable marker.
