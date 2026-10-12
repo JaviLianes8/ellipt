@@ -78,3 +78,6 @@ def test_shorten_path_stays_within_the_limit(seed: int) -> None:
         assert measure(result, unit) <= limit, (path, limit, unit)
         if measure(path, unit) <= limit:
             assert result == path
+        elif marker not in result:
+            # Without a marker the result is the bare file name, which fit as it is.
+            assert path.rstrip("/\\").endswith(result.rstrip("/\\")), (path, limit, unit)

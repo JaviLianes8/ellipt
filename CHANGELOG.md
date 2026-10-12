@@ -31,6 +31,11 @@ All notable changes to this project are documented here. The format follows
 - `width_aware=True` now measures grapheme clusters, so emoji sequences count as one
   two-column glyph and the width data follows Unicode 18.0.0.
 - In the middle position, budget the left side cannot use goes to the right side.
+- Wrong argument types now raise `TypeError`: a non-str `text` or `marker`, and a
+  `width` that is not an int (a float or a bool).
+- Error messages say "limit" instead of "width" and name the unit.
+- With `width_aware=True`, control characters such as tab count as zero columns
+  (0.1.0 counted them as one), following wcwidth. Expand tabs first if they matter.
 
 ## [0.1.0]
 

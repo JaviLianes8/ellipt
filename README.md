@@ -28,7 +28,7 @@ shorten("short", 20)  # -> 'short'
 ### Pick the unit of the limit
 
 ```python
-family = "\U0001f468‍\U0001f469‍\U0001f467"  # one emoji, five code points
+family = "\U0001f468\u200d\U0001f469\u200d\U0001f467"  # one emoji, five code points
 text = "ab" + family + "cd"
 
 measure(text, "chars")  # -> 9
@@ -38,7 +38,7 @@ measure(text, "bytes")  # -> 22
 
 # The family is kept whole or dropped whole, never cut into pieces.
 shorten(text, 6, marker=ELLIPSIS)  # -> 'ab…'
-shorten(text, 4, unit="graphemes", marker=ELLIPSIS)  # -> 'ab👨‍👩‍👧…'
+shorten(text, 4, unit="graphemes", marker=ELLIPSIS)  # -> 'ab👨\u200d👩\u200d👧…'
 shorten("你好世界", 5, unit="columns", marker=ELLIPSIS)  # -> '你好…'
 shorten("café crème", 8, unit="bytes", marker="")  # -> 'café cr'
 ```
@@ -71,13 +71,15 @@ shorten_path("photos/an_extremely_long_holiday_name.jpeg", 20)  # -> 'an_ext...y
 $ printf 'hello world\n' | ellipt 8
 hello...
 $ git ls-files | ellipt 28 --path
-$ ellipt 30 --where middle --marker $'…' notes.txt
+$ ellipt 30 --where middle --ellipsis notes.txt
 $ ellipt 255 --unit bytes --marker "" < titles.txt
 ```
 
-The command reads standard input (or the files given) as UTF-8, keeps each line ending,
-and counts terminal columns by default. `ellipt --help` lists every option. Errors go to
-standard error with exit status 1.
+The command reads standard input (or the files given) as UTF-8, keeps each LF or CRLF
+line ending, and counts terminal columns by default, expanding tabs to 8-column stops
+first (`--tabsize`). `--ellipsis` uses U+2026 as the marker without having to type it.
+`ellipt --help` lists every option. Errors go to standard error with exit status 1, and
+a reader that stops early (`| head`) is not an error.
 
 ## Why
 

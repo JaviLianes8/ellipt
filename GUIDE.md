@@ -75,30 +75,34 @@ truncate("a\u4f60bcdefgh", 5, where="middle", unit="columns", marker=".").text  
 ## Words
 
 `words=True` moves each cut to whitespace (any character for which `str.isspace` is
-true) and drops the whitespace next to the marker. It does not use dictionary-based word
-segmentation, so text without spaces (Chinese, Japanese, Thai) gets a hard cut at a
-grapheme boundary. If a single word fills the whole budget, the cut is hard too, rather
-than returning only the marker.
+true) and drops the whitespace next to the marker. In the middle position the budget a
+snap frees on one side is offered to the other side, again on word boundaries. It does
+not use dictionary-based word segmentation, so text without spaces (Chinese, Japanese,
+Thai) gets a hard cut at a grapheme boundary. If a single word fills the whole budget,
+the cut is hard too, rather than returning only the marker.
 
 ```python
 truncate("Supercalifragilistic", 8, words=True).text  # -> 'Super...'
 truncate("one two three", 11, where="start", words=True).text  # -> '...three'
+truncate("a b c d e f", 7, where="middle", words=True).text  # -> 'a...e f'
 ```
 
 ## Paths
 
-`shorten_path` keeps the first component (`/`, `C:\`, `~/`, or the top directory of a
-relative path) and the file name, and keeps as many directories next to the file name as
+`shorten_path` keeps the first component (`/`, `C:\`, `~/`, `\\server\share\`, or the top
+directory of a relative path) and the file name, and keeps as many directories next to the file name as
 fit. The order of fallbacks is:
 
 1. `root + marker + /dir/.../name`, dropping directories from the root side first;
 2. `marker + /name`;
 3. `name` alone, when it fits;
-4. the name shortened in the middle of its stem with the extension kept;
+4. the name shortened in the middle of its stem with the extension kept (`.tar.gz`,
+   `.tar.xz` and other `.tar.*` extensions stay together);
 5. the name shortened in the middle.
 
 Both `/` and `\` count as separators unless `sep` names one. A trailing separator stays
-with the last directory.
+with the last directory. An empty marker is rejected, because `a/b/c` cut to `a//c`
+would read as a different, real path.
 
 ```python
 from ellipt import shorten_path
@@ -115,7 +119,12 @@ shorten_path("/srv/www/site/public/", 16)  # -> '/.../public/'
 - Lone surrogates are counted as three bytes (the `surrogatepass` encoding) so strings
   from `os.fsdecode` do not crash the byte unit.
 - CR LF is a single grapheme cluster and is never split.
+- Tabs and other control characters are zero columns, as in wcwidth. The library does
+  not know your tab stops, so expand tabs first (`s.expandtabs()`); the command line tool
+  does this for you with `--tabsize`.
 - ANSI escape sequences are measured as ordinary text. Strip them first.
+- Long inputs: an end cut in `chars` or `bytes` only segments the first `limit + 1` code
+  points. Other cuts segment the whole string once, which is linear in its length.
 
 ## Unicode data
 

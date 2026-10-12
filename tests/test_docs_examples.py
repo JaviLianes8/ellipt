@@ -29,4 +29,4 @@ def test_documented_results_are_true(doc: str) -> None:
             else:
                 lines.append(line)
         exec("\n".join(lines), namespace)
-    assert checked >= 4
+    assert checked >= {"README.md": 20, "GUIDE.md": 12}[doc]
