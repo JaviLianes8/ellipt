@@ -6,9 +6,9 @@ from ._graphemes import grapheme_ends
 from ._props import AMBIGUOUS, EMOJI_BIT, EXT_PICT_BIT, GCB, MODIFIER_BIT, WIDTH_SHIFT, prop
 
 _RI = GCB["Regional_Indicator"]
-_VS15 = "︎"
-_VS16 = "️"
-_ZWJ = "‍"
+_VS15 = "\ufe0e"
+_VS16 = "\ufe0f"
+_ZWJ = "\u200d"
 _TAGS = range(0xE0020, 0xE0080)
 
 

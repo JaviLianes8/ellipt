@@ -6,9 +6,9 @@ import pytest
 
 from ellipt import ELLIPSIS, Truncation, measure, shorten, truncate
 
-FAMILY = "\U0001f468‍\U0001f469‍\U0001f467"  # man ZWJ woman ZWJ girl
+FAMILY = "\U0001f468\u200d\U0001f469\u200d\U0001f467"  # man ZWJ woman ZWJ girl
 FLAG = "\U0001f1ea\U0001f1f8"  # regional indicators E S
-E_ACUTE = "é"  # e + COMBINING ACUTE ACCENT
+E_ACUTE = "e\u0301"  # e + COMBINING ACUTE ACCENT
 
 
 def test_a_fitting_text_is_reported_untouched() -> None:
@@ -39,7 +39,7 @@ def test_a_flag_and_a_zwj_family_are_kept_or_dropped_whole() -> None:
 
 
 def test_units_measure_the_same_text_differently() -> None:
-    text = "a" + FAMILY + "世"
+    text = "a" + FAMILY + "\u4e16"
     assert measure(text) == 7
     assert measure(text, "graphemes") == 3
     assert measure(text, "columns") == 5
@@ -51,13 +51,15 @@ def test_graphemes_unit_counts_what_a_reader_sees() -> None:
 
 
 def test_columns_unit_counts_wide_characters_as_two() -> None:
-    assert shorten("你好世界", 5, unit="columns", marker=ELLIPSIS) == ("你好" + ELLIPSIS)
-    assert shorten("─" * 4, 3, unit="columns", ambiguous=2, marker="") == "─"
+    assert shorten("\u4f60\u597d\u4e16\u754c", 5, unit="columns", marker=ELLIPSIS) == (
+        "\u4f60\u597d" + ELLIPSIS
+    )
+    assert shorten("\u2500" * 4, 3, unit="columns", ambiguous=2, marker="") == "\u2500"
 
 
 def test_bytes_unit_fits_a_utf8_column() -> None:
-    result = truncate("naïve café crème", 12, unit="bytes", marker=ELLIPSIS)
-    assert result.text.encode() == "naïve ca…".encode()
+    result = truncate("na\u00efve caf\u00e9 cr\u00e8me", 12, unit="bytes", marker=ELLIPSIS)
+    assert result.text.encode() == "na\u00efve ca\u2026".encode()
     assert len(result.text.encode()) <= 12
 
 
@@ -68,7 +70,7 @@ def test_the_unicode_ellipsis_is_cheaper_than_three_dots_except_in_bytes() -> No
 
 
 def test_width_aware_is_the_columns_unit() -> None:
-    text = "广广广x"
+    text = "\u5e7f\u5e7f\u5e7fx"
     assert shorten(text, 5, width_aware=True) == shorten(text, 5, unit="columns")
     with pytest.raises(ValueError, match="conflicts"):
         shorten(text, 5, width_aware=True, unit="bytes")
@@ -76,7 +78,7 @@ def test_width_aware_is_the_columns_unit() -> None:
 
 def test_middle_hands_leftover_budget_to_the_right() -> None:
     # The left half (2 columns) stops before the wide character; its spare column goes right.
-    result = truncate("a你bcdefgh", 5, where="middle", unit="columns", marker=".")
+    result = truncate("a\u4f60bcdefgh", 5, where="middle", unit="columns", marker=".")
     assert (result.head, result.tail, result.size) == ("a", "fgh", 5)
 
 
@@ -125,5 +127,5 @@ def test_non_string_text_is_rejected() -> None:
 
 def test_a_marker_that_would_merge_with_the_head_still_respects_the_limit() -> None:
     # VS16 turns a narrow heart into a wide emoji; the engine re-measures and backs off.
-    result = truncate("❤abc", 3, unit="columns", marker="️.")
+    result = truncate("\u2764abc", 3, unit="columns", marker="\ufe0f.")
     assert result.size <= 3 and result.text.startswith(result.head)

@@ -10,7 +10,7 @@ from ._measure import Unit, check_unit, cluster_size, clusters, size_of
 from ._width import check_ambiguous
 
 Where = Literal["start", "middle", "end"]
-ELLIPSIS = "…"
+ELLIPSIS = "\u2026"
 
 
 @dataclass(frozen=True)
@@ -96,7 +96,7 @@ def truncate(
     'hello...'
     >>> r = truncate("hello brave new world", 15, marker=ELLIPSIS, words=True)
     >>> r.text, r.removed
-    ('hello brave…', ' new world')
+    ('hello brave\u2026', ' new world')
     >>> truncate("Espa\\U0001f1ea\\U0001f1f8a!", 7, unit="chars", marker="..").text
     'Espa..'
     """

@@ -52,15 +52,15 @@ def test_an_unknown_position_is_rejected() -> None:
 
 
 def test_width_aware_counts_wide_characters_as_two() -> None:
-    result = shorten("广广广x", 5, marker="..", width_aware=True)
-    assert result == "广.."
+    result = shorten("\u5e7f\u5e7f\u5e7fx", 5, marker="..", width_aware=True)
+    assert result == "\u5e7f.."
 
 
 def test_width_aware_leaves_fitting_wide_text_unchanged() -> None:
-    text = "广广"
+    text = "\u5e7f\u5e7f"
     assert shorten(text, 4, width_aware=True) == text
 
 
 def test_without_width_aware_wide_characters_count_as_one() -> None:
-    text = "广广广"
+    text = "\u5e7f\u5e7f\u5e7f"
     assert shorten(text, 4, width_aware=False) == text

@@ -11,6 +11,8 @@ import pytest
 from ellipt import __version__
 from ellipt._cli import main
 
+WORLD = "\u4f60\u597d\u4e16\u754c"  # four wide characters, 8 columns
+
 
 class _Stream:
     def __init__(self, data: bytes = b"") -> None:
@@ -36,12 +38,12 @@ def _run(
         (["8"], "hello world\nok\n", "hello...\nok\n"),
         (["8", "-w", "start"], "hello world\r\n", "...world\r\n"),
         (["9", "--where", "middle"], "hello world", "hel...rld"),
-        (["5", "-m", "…"], "你好世界\n", "你好…\n"),
-        (["5", "-u", "chars", "-m", "…"], "你好世界\n", "你好世界\n"),
-        (["6", "-u", "bytes", "-m", ""], "éééé\n", "ééé\n"),
+        (["5", "-m", "\u2026"], WORLD + "\n", "\u4f60\u597d\u2026\n"),
+        (["5", "-u", "chars", "-m", "\u2026"], WORLD + "\n", WORLD + "\n"),
+        (["6", "-u", "bytes", "-m", ""], "\u00e9\u00e9\u00e9\u00e9\n", "\u00e9\u00e9\u00e9\n"),
         (["12", "--words"], "The quick brown fox\n", "The quick...\n"),
         (["19", "--path"], "/home/me/projects/app/src/main.py\n", "/.../src/main.py\n"),
-        (["4", "--ambiguous", "2", "-m", ""], "───\n", "──\n"),
+        (["4", "--ambiguous", "2", "-m", ""], "\u2500\u2500\u2500\n", "\u2500\u2500\n"),
         (["3"], "", ""),
     ],
 )  # fmt: skip

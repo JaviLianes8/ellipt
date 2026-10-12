@@ -11,8 +11,9 @@ pip install -r requirements-dev.txt
 ## Before you open a pull request
 
 - Keep public API in `src/ellipt/__init__.py`; internals live in `_`-prefixed modules.
-- Add a test for the behaviour you change. Tests inject time, disk and network; they
-  never touch the real thing.
+- Add a test for the behaviour you change.
+- Never edit `src/ellipt/_ucd_*.py` by hand: they are generated from `data/ucd/` by
+  `python scripts/gen_ucd_tables.py` (see GUIDE.md, "Unicode data").
 - Run `scripts/check.ps1` (format, lint, types, tests) and make sure it passes.
 - One logical change per commit, imperative subject line.
 

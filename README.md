@@ -1,6 +1,9 @@
 # ellipt
 
-Truncate strings with an ellipsis at the start, middle or end, by character count or display width.
+Truncate strings with an ellipsis at the start, middle or end. The limit can count code
+points, grapheme clusters, terminal columns or UTF-8 bytes, the marker is counted inside
+the limit, and the cut never splits an accent, a flag or an emoji sequence. Typed, zero
+dependencies, Unicode 18.0.0 tables embedded.
 
 ## Install
 
@@ -11,42 +14,83 @@ pip install ellipt
 ## Usage
 
 ```python
-from ellipt import shorten
+from ellipt import ELLIPSIS, measure, shorten, shorten_path, truncate
 
-shorten("hello world", 8)                   # 'hello...'
-shorten("hello world", 8, where="start")    # '...world'
-shorten("hello world", 9, where="middle")   # 'hel...rld'
-shorten("/var/log/app/service.log", 16, where="middle")  # '/var/lo...ce.log'
-
-# Any marker you like.
-shorten("hello world", 6, marker="_")       # 'hello_'
+shorten("hello world", 8)  # -> 'hello...'
+shorten("hello world", 8, where="start")  # -> '...world'
+shorten("hello world", 9, where="middle")  # -> 'hel...rld'
+shorten("hello world", 6, marker=ELLIPSIS)  # -> 'hello…'
 
 # Text that already fits is returned unchanged.
-shorten("short", 20)                        # 'short'
+shorten("short", 20)  # -> 'short'
 ```
 
-By default the width is a code point count. Pass `width_aware=True` to measure in
-display columns, so wide East Asian characters count as two and the result never
-overflows a fixed-width layout:
+### Pick the unit of the limit
 
 ```python
-shorten("广广广x", 5, marker="..", width_aware=True)  # '广..'
+family = "\U0001f468‍\U0001f469‍\U0001f467"  # one emoji, five code points
+text = "ab" + family + "cd"
+
+measure(text, "chars")  # -> 9
+measure(text, "graphemes")  # -> 5
+measure(text, "columns")  # -> 6
+measure(text, "bytes")  # -> 22
+
+# The family is kept whole or dropped whole, never cut into pieces.
+shorten(text, 6, marker=ELLIPSIS)  # -> 'ab…'
+shorten(text, 4, unit="graphemes", marker=ELLIPSIS)  # -> 'ab👨‍👩‍👧…'
+shorten("你好世界", 5, unit="columns", marker=ELLIPSIS)  # -> '你好…'
+shorten("café crème", 8, unit="bytes", marker="")  # -> 'café cr'
 ```
 
-A width too small to hold the marker, a negative width, or an unknown position
-raises `ValueError`.
+`width_aware=True` from 0.1.0 still works and means `unit="columns"`.
+
+### Know what was removed
+
+```python
+r = truncate("The quick brown fox jumps", 14, words=True, marker=ELLIPSIS)
+r.text  # -> 'The quick…'
+r.removed  # -> ' brown fox jumps'
+r.truncated  # -> True
+r.size <= r.limit  # -> True
+```
+
+`words=True` backs the cut off to whitespace; with one long word it cuts hard instead.
+
+### Shorten paths the way file browsers do
+
+```python
+shorten_path("/home/me/projects/app/src/main.py", 20)  # -> '/.../app/src/main.py'
+shorten_path("/home/me/projects/app/src/main.py", 11)  # -> '.../main.py'
+shorten_path("photos/an_extremely_long_holiday_name.jpeg", 20)  # -> 'an_ext...y_name.jpeg'
+```
+
+## Command line
+
+```
+$ printf 'hello world\n' | ellipt 8
+hello...
+$ git ls-files | ellipt 28 --path
+$ ellipt 30 --where middle --marker $'…' notes.txt
+$ ellipt 255 --unit bytes --marker "" < titles.txt
+```
+
+The command reads standard input (or the files given) as UTF-8, keeps each line ending,
+and counts terminal columns by default. `ellipt --help` lists every option. Errors go to
+standard error with exit status 1.
 
 ## Why
 
-The standard library's `textwrap.shorten` only cuts at the end and collapses on
-word boundaries, so it cannot trim the middle of a path or the head of an id, and
-it never lands on an exact length. `ellipt` cuts at the start, middle or end at a
-precise length, with a marker you choose, and can measure display width for
-terminal and fixed-column output.
+`textwrap.shorten` only cuts at the end, collapses whitespace and always cuts on words.
+Plain slicing (`s[:n] + "..."`) splits emoji and accents, overflows a terminal with wide
+characters and can exceed a byte limit. `ellipt` cuts where you ask, in the unit you
+need, and guarantees the result is never longer than the limit. See [GUIDE.md](GUIDE.md)
+for the exact rules, the Unicode sources and the edge cases.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). The embedded Unicode data is covered by the Unicode
+License v3, see [LICENSE-UNICODE](LICENSE-UNICODE).
 
 ## Links
 

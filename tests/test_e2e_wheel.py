@@ -15,7 +15,7 @@ from pathlib import Path
 import ellipt
 
 ROOT = Path(__file__).resolve().parent.parent
-FAMILY = "\U0001f468‍\U0001f469‍\U0001f467"
+FAMILY = "\U0001f468\u200d\U0001f469\u200d\U0001f467"
 
 
 def _run(cmd: list[str], stdin: bytes = b"") -> subprocess.CompletedProcess[bytes]:
@@ -50,10 +50,10 @@ def test_wheel_installs_and_the_script_works(tmp_path: Path) -> None:
 
     done = _run([str(script), "8"], b"hello world\nok\r\n")
     assert (done.returncode, done.stdout) == (0, b"hello...\nok\r\n")
-    done = _run([str(script), "4", "--marker", "…"], f"ab{FAMILY}cd\n".encode())
-    assert done.stdout == "ab…\n".encode()  # the family is 2 columns: kept whole or not at all
-    done = _run([str(script), "5", "--marker", "…"], f"ab{FAMILY}cd\n".encode())
-    assert done.stdout == f"ab{FAMILY}…\n".encode()
+    done = _run([str(script), "4", "--marker", "\u2026"], f"ab{FAMILY}cd\n".encode())
+    assert done.stdout == "ab\u2026\n".encode()  # the family is 2 columns: kept whole or not at all
+    done = _run([str(script), "5", "--marker", "\u2026"], f"ab{FAMILY}cd\n".encode())
+    assert done.stdout == f"ab{FAMILY}\u2026\n".encode()
     done = _run([str(script), "16", "--path"], b"/srv/www/site/public/index.html\n")
     assert done.stdout == b"/.../index.html\n"
     done = _run([str(script), "9", "-w", "middle", "-u", "bytes"], b"0123456789abcdef\n")

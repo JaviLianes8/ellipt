@@ -5,17 +5,22 @@ build-backend = "hatchling.build"
 [project]
 name = "ellipt"
 version = "0.2.0"
-description = "Truncate strings with an ellipsis at the start, middle or end, by character count or display width"
+description = "Truncate strings with an ellipsis at the start, middle or end, by characters, grapheme clusters, display columns or UTF-8 bytes, without splitting emoji or accents"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE", "LICENSE-UNICODE"]
 authors = [{ name = "Javier Lianes", email = "javier@lianes8studio.com" }]
-keywords = []
+keywords = ["ellipsis", "truncate", "shorten", "string", "unicode", "grapheme", "display-width", "path", "cli"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Topic :: Text Processing",
+    "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
 ]
 dependencies = []

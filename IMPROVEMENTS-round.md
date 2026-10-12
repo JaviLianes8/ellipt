@@ -8,7 +8,7 @@ Progress:
 - [x] Typed `Truncation` result, word-aware cutting, `measure`
 - [x] Path-aware middle truncation (`shorten_path`)
 - [x] Command line tool
-- [ ] Docs: docstrings, README, GUIDE, CHANGELOG, version bump
+- [x] Docs: docstrings, README, GUIDE, CHANGELOG, version bump
 - [ ] Contract test, GraphemeBreakTest conformance, seeded fuzz, wheel e2e
 - [ ] Gates green, pull request opened
 - [ ] Independent review findings fixed, trace guard clean

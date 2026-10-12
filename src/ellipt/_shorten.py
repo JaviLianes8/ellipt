@@ -34,7 +34,7 @@ def shorten(
     >>> shorten("/var/log/app/service.log", 16, where="middle")
     '/var/lo...ce.log'
     >>> shorten("\\u5e7f\\u5e7f\\u5e7fx", 5, marker="..", width_aware=True)
-    '广..'
+    '\u5e7f..'
     """
     if unit is None:
         unit = "columns" if width_aware else "chars"
