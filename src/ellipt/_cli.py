@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import errno
+import os
 import sys
 from collections.abc import Iterator, Sequence
 from typing import IO, NoReturn
 
 from . import __version__
-from ._core import truncate
+from ._core import ELLIPSIS, truncate
 from ._measure import UNITS
 from ._path import shorten_path
 
@@ -19,12 +22,18 @@ examples:
   git ls-files | ellipt 28 --path        keep the root and the file name
   ellipt 255 --unit bytes --marker "" < titles.txt
                                          fit a 255-byte UTF-8 column
-  tail -f app.log | ellipt 80 --where start --marker $'\\u2026'
+  tail -f app.log | ellipt 80 --where start --ellipsis
 
-Lines are read as UTF-8 and written as UTF-8 with their line endings kept. The limit
-counts the marker, and no grapheme cluster (accent, flag, emoji sequence) is ever split.
-Errors go to standard error with exit status 1.
+Lines are read as UTF-8 (a leading byte order mark is dropped) and written as UTF-8,
+keeping each LF or CRLF line ending. The limit counts the marker, and no grapheme
+cluster (accent, flag, emoji sequence) is ever split. With --unit columns, tabs are
+expanded to spaces first (--tabsize); ANSI escape sequences are not recognised, so
+strip colours before piping. Errors go to standard error with exit status 1.
 """
+
+
+class _PipeClosed(Exception):
+    """The reader of standard output went away."""
 
 
 class _Parser(argparse.ArgumentParser):
@@ -64,7 +73,16 @@ def build_parser() -> argparse.ArgumentParser:
         default="columns",
         help="what LIMIT counts (default: columns, terminal cells)",
     )
-    parser.add_argument("-m", "--marker", default="...", help='replacement text (default: "...")')
+    marker = parser.add_mutually_exclusive_group()
+    marker.add_argument("-m", "--marker", default="...", help='replacement text (default: "...")')
+    marker.add_argument(
+        "-e",
+        "--ellipsis",
+        dest="marker",
+        action="store_const",
+        const=ELLIPSIS,
+        help="use the single character U+2026 HORIZONTAL ELLIPSIS as the marker",
+    )
     parser.add_argument("--words", action="store_true", help="cut at whitespace when possible")
     parser.add_argument(
         "--path", action="store_true", help="treat lines as paths: drop middle directories"
@@ -76,17 +94,40 @@ def build_parser() -> argparse.ArgumentParser:
         default=1,
         help="columns of East Asian Ambiguous characters (default: 1)",
     )
+    parser.add_argument(
+        "--tabsize",
+        type=_non_negative,
+        default=8,
+        help="with --unit columns, expand tabs to this tab stop first; 0 keeps them as "
+        "zero-width characters (default: 8)",
+    )
     parser.add_argument("-V", "--version", action="version", version=f"ellipt {__version__}")
     return parser
 
 
-def _lines(names: Sequence[str]) -> Iterator[bytes]:
+def _lines(names: Sequence[str]) -> Iterator[tuple[str, int, bytes]]:
+    """Yield ``(source name, line number, raw line)`` with any UTF-8 BOM removed."""
     if not names:
-        yield from sys.stdin.buffer
+        yield from _numbered("<stdin>", sys.stdin.buffer)
         return
     for name in names:
         with open(name, "rb") as handle:
-            yield from handle
+            yield from _numbered(name, handle)
+
+
+def _numbered(name: str, handle: IO[bytes]) -> Iterator[tuple[str, int, bytes]]:
+    for number, raw in enumerate(handle, 1):
+        yield name, number, raw[3:] if number == 1 and raw.startswith(b"\xef\xbb\xbf") else raw
+
+
+def _write(out: IO[bytes], data: bytes) -> None:
+    try:
+        out.write(data)
+    except OSError as exc:
+        # Windows reports a closed pipe as EINVAL rather than EPIPE.
+        if isinstance(exc, BrokenPipeError) or exc.errno in (errno.EPIPE, errno.EINVAL):
+            raise _PipeClosed from None
+        raise
 
 
 def _split_ending(line: str) -> tuple[str, str]:
@@ -97,12 +138,14 @@ def _split_ending(line: str) -> tuple[str, str]:
 
 
 def _run(args: argparse.Namespace, out: IO[bytes]) -> None:
-    for number, raw in enumerate(_lines(args.files), 1):
+    for name, number, raw in _lines(args.files):
         try:
             line = raw.decode("utf-8")
         except UnicodeDecodeError as exc:
-            raise ValueError(f"line {number} is not valid UTF-8: {exc.reason}") from None
+            raise ValueError(f"{name}: line {number} is not valid UTF-8: {exc.reason}") from None
         body, ending = _split_ending(line)
+        if args.unit == "columns" and args.tabsize and "\t" in body:
+            body = body.expandtabs(args.tabsize)
         if args.path:
             short = shorten_path(
                 body, args.limit, unit=args.unit, marker=args.marker, ambiguous=args.ambiguous
@@ -117,7 +160,7 @@ def _run(args: argparse.Namespace, out: IO[bytes]) -> None:
                 words=args.words,
                 ambiguous=args.ambiguous,
             ).text
-        out.write((short + ending).encode("utf-8"))
+        _write(out, (short + ending).encode("utf-8"))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -128,9 +171,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--path always cuts in the middle and does not take --words")
     try:
         _run(args, sys.stdout.buffer)
+        _write(sys.stdout.buffer, b"")
         sys.stdout.flush()
-    except BrokenPipeError:
-        sys.stderr.close()
+    except (_PipeClosed, BrokenPipeError):
+        # Point stdout at the null device so the flush at exit cannot fail again.
+        with contextlib.suppress(OSError, ValueError, AttributeError):
+            null = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(null, sys.stdout.fileno())
+            os.close(null)
         return 0
     except (OSError, ValueError) as exc:
         print(f"ellipt: error: {exc}", file=sys.stderr)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from ._graphemes import grapheme_ends
 from ._props import AMBIGUOUS, EMOJI_BIT, EXT_PICT_BIT, GCB, MODIFIER_BIT, WIDTH_SHIFT, prop
 
 _RI = GCB["Regional_Indicator"]
@@ -22,17 +21,6 @@ def check_ambiguous(ambiguous: int) -> int:
 def _code_width(code: int, ambiguous: int) -> int:
     width = code >> WIDTH_SHIFT
     return ambiguous if width == AMBIGUOUS else width
-
-
-def char_width(char: str, ambiguous: int = 1) -> int:
-    """Return the display width of a single code point: 0, 1 or 2.
-
-    Controls, nonspacing and enclosing marks, format characters (except SOFT HYPHEN)
-    and Hangul medial vowels and final consonants are zero. East Asian Wide and
-    Fullwidth characters are two, East Asian Ambiguous ones take ``ambiguous`` cells
-    and everything else is one (Markus Kuhn's wcwidth rules over Unicode 18.0.0).
-    """
-    return _code_width(prop(ord(char)), ambiguous)
 
 
 def cluster_width(cluster: str, ambiguous: int = 1) -> int:
@@ -60,15 +48,3 @@ def cluster_width(cluster: str, ambiguous: int = 1) -> int:
     if code & 0x0F == _RI and prop(ord(rest[0])) & 0x0F == _RI:
         return 2
     return sum(_code_width(prop(ord(ch)), ambiguous) for ch in cluster)
-
-
-def text_width(text: str, ambiguous: int = 1) -> int:
-    """Return the total display width of ``text``, cluster by cluster."""
-    if text.isascii():
-        return sum(1 for ch in text if " " <= ch <= "~")
-    total = 0
-    start = 0
-    for end in grapheme_ends(text):
-        total += cluster_width(text[start:end], ambiguous)
-        start = end
-    return total

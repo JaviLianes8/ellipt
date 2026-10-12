@@ -95,6 +95,8 @@ def iter_graphemes(s: str) -> Iterator[str]:
     >>> [len(g) for g in iter_graphemes("e\\u0301\\U0001f1ea\\U0001f1f8")]
     [2, 2]
     """
+    if not isinstance(s, str):
+        raise TypeError(f"iter_graphemes expects str, not {type(s).__name__}")
     start = 0
     for end in grapheme_ends(s):
         yield s[start:end]

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -109,3 +111,57 @@ def test_version_and_help(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit):
         main(["--help"])
     assert "examples:" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("args", "data", "expected"),
+    [
+        (["4", "-e"], "abcdef\n", "abc\u2026\n"),
+        (["12", "-e"], "a\tbcdefghijk\n", "a       bcd\u2026\n"),
+        (["12", "-e", "--tabsize", "4"], "a\tbcdefghijk\n", "a   bcdefgh\u2026\n"),
+        (["4", "-e", "--tabsize", "0"], "a\tbcdef\n", "a\tbc\u2026\n"),
+        (["4", "-e", "-u", "chars"], "a\tbcdef\n", "a\tb\u2026\n"),
+        (["5"], "\ufeffabcdefgh\nij\n", "ab...\nij\n"),
+    ],
+)
+def test_ellipsis_flag_tabs_and_bom(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    args: list[str],
+    data: str,
+    expected: str,
+) -> None:
+    assert _run(monkeypatch, capsys, args, data) == (0, expected, "")
+
+
+def test_marker_and_ellipsis_are_exclusive(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exited:
+        main(["4", "-e", "-m", "~"])
+    assert exited.value.code == 1 and "not allowed" in capsys.readouterr().err
+
+
+def test_a_decoding_error_names_the_file_and_its_own_line_number(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    good, bad = tmp_path / "good.txt", tmp_path / "bad.txt"
+    good.write_bytes(b"one\ntwo\n")
+    bad.write_bytes(b"ok\n\xff\n")
+    monkeypatch.setattr(sys, "stdout", _Stream())
+    assert main(["5", str(good), str(bad)]) == 1
+    assert f"{bad}: line 2 is not valid UTF-8" in capsys.readouterr().err
+
+
+def test_a_reader_that_stops_early_is_not_an_error(tmp_path: Path) -> None:
+    source = tmp_path / "big.txt"
+    source.write_bytes(b"some long line of text\n" * 200_000)
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parent.parent / "src")
+    command = [sys.executable, "-m", "ellipt", "10", str(source)]
+    with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env) as proc:
+        assert proc.stdout is not None and proc.stderr is not None
+        first = proc.stdout.readline()
+        proc.stdout.close()
+        err = proc.stderr.read()
+        code = proc.wait(timeout=60)
+    assert first == b"some lo...\n"
+    assert (code, err) == (0, b"")
