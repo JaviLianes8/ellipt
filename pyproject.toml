@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ellipt"
-version = "0.2.0"
+version = "0.2.1"
 description = "Truncate strings with an ellipsis at the start, middle or end, by characters, grapheme clusters, display columns or UTF-8 bytes, without splitting emoji or accents"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -38,6 +38,20 @@ Issues = "https://github.com/JaviLianes8/ellipt/issues"
 Changelog = "https://github.com/JaviLianes8/ellipt/blob/main/CHANGELOG.md"
 LinkedIn = "https://www.linkedin.com/in/jlianes/"
 Funding = "https://buymeacoffee.com/jlianesglrs"
+
+[tool.hatch.build.targets.sdist]
+# The Unicode data files are fetched locally and never shipped; only their manifest is.
+include = [
+    "src",
+    "tests",
+    "scripts/gen_ucd_tables.py",
+    "scripts/fetch_upstream.py",
+    "data/ucd/MANIFEST.json",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "GUIDE.md",
+]
+exclude = ["**/__pycache__"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ellipt"]
