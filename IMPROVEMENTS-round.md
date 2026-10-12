@@ -11,7 +11,7 @@ Progress:
 - [x] Docs: docstrings, README, GUIDE, CHANGELOG, version bump
 - [x] Contract test, GraphemeBreakTest conformance, seeded fuzz, wheel e2e
 - [x] Gates green, pull request opened (#2)
-- [ ] Independent review findings fixed, trace guard clean
+- [x] Independent review findings fixed, trace guard clean
 
 Ranked by user impact. Every item is additive: `shorten(text, width, *, where, marker,
 width_aware)` keeps its name, parameters and return type. New behaviour arrives through
