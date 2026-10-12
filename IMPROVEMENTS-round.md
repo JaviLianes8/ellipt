@@ -5,8 +5,8 @@ Progress:
 - [x] Brainstorm (this file)
 - [x] UCD snapshot, generator and embedded tables (Unicode 18.0.0)
 - [x] Grapheme-safe cutting and the four units (chars, graphemes, columns, bytes)
-- [ ] Typed `Truncation` result, word-aware cutting, `measure`
-- [ ] Path-aware middle truncation (`shorten_path`)
+- [x] Typed `Truncation` result, word-aware cutting, `measure`
+- [x] Path-aware middle truncation (`shorten_path`)
 - [ ] Command line tool
 - [ ] Docs: docstrings, README, GUIDE, CHANGELOG, version bump
 - [ ] Contract test, GraphemeBreakTest conformance, seeded fuzz, wheel e2e
