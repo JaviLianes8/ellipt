@@ -2,40 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Literal
+from ._core import Where, truncate
+from ._measure import Unit
 
-from ._width import char_width, text_width
-
-Where = Literal["start", "middle", "end"]
-
-
-def _unit_width(char: str) -> int:
-    return 1
-
-
-def _take_left(text: str, budget: int, measure: Callable[[str], int]) -> str:
-    used = 0
-    kept: list[str] = []
-    for char in text:
-        width = measure(char)
-        if used + width > budget:
-            break
-        used += width
-        kept.append(char)
-    return "".join(kept)
-
-
-def _take_right(text: str, budget: int, measure: Callable[[str], int]) -> str:
-    used = 0
-    kept: list[str] = []
-    for char in reversed(text):
-        width = measure(char)
-        if used + width > budget:
-            break
-        used += width
-        kept.append(char)
-    return "".join(reversed(kept))
+__all__ = ["Where", "shorten"]
 
 
 def shorten(
@@ -45,33 +15,32 @@ def shorten(
     where: Where = "end",
     marker: str = "...",
     width_aware: bool = False,
+    unit: Unit | None = None,
+    words: bool = False,
+    ambiguous: int = 1,
 ) -> str:
     """Return text clipped to width, with marker marking where it was cut.
 
-    The result never exceeds width. When width_aware is set, width is measured
-    in display columns (wide characters count as two) instead of code points.
-    Text that already fits is returned unchanged. A width that cannot even hold
-    the marker, or an unknown position, raises ValueError.
+    The result never exceeds width, measured in ``unit``: ``"chars"`` (code points, the
+    default), ``"graphemes"``, ``"columns"`` (display cells) or ``"bytes"`` (UTF-8).
+    ``width_aware=True`` is a shorthand for ``unit="columns"``. The marker counts inside
+    the width, and the cut never splits a grapheme cluster. ``words=True`` cuts at
+    whitespace when it can. Text that already fits is returned unchanged. A width that
+    cannot even hold the marker, or an unknown position or unit, raises ValueError.
+    Use ``truncate`` for a typed result that also says what was removed.
+
+    >>> shorten("hello world", 8)
+    'hello...'
+    >>> shorten("/var/log/app/service.log", 16, where="middle")
+    '/var/lo...ce.log'
+    >>> shorten("\\u5e7f\\u5e7f\\u5e7fx", 5, marker="..", width_aware=True)
+    '\u5e7f..'
     """
-    if where not in ("start", "middle", "end"):
-        raise ValueError(f"where must be 'start', 'middle' or 'end', not {where!r}")
-    if width < 0:
-        raise ValueError(f"width must be non-negative, not {width}")
-
-    measure = char_width if width_aware else _unit_width
-    size = text_width(text) if width_aware else len(text)
-    if size <= width:
-        return text
-
-    marker_size = text_width(marker) if width_aware else len(marker)
-    if marker_size > width:
-        raise ValueError(f"marker of width {marker_size} does not fit in width {width}")
-    budget = width - marker_size
-
-    if where == "end":
-        return _take_left(text, budget, measure) + marker
-    if where == "start":
-        return marker + _take_right(text, budget, measure)
-    left = budget - budget // 2
-    right = budget // 2
-    return _take_left(text, left, measure) + marker + _take_right(text, right, measure)
+    if unit is None:
+        unit = "columns" if width_aware else "chars"
+    elif width_aware and unit != "columns":
+        raise ValueError(f"width_aware=True conflicts with unit={unit!r}")
+    result = truncate(
+        text, width, where=where, unit=unit, marker=marker, words=words, ambiguous=ambiguous
+    )
+    return result.text
