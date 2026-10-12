@@ -88,7 +88,16 @@ def test_words_backs_off_to_whitespace_and_trims_it() -> None:
     assert shorten(text, 14, marker=ELLIPSIS) == "The quick bro" + ELLIPSIS
     assert shorten(text, 12, where="start", words=True, marker=ELLIPSIS) == ELLIPSIS + "fox jumps"
     middle = shorten(text, 16, where="middle", words=True, marker=ELLIPSIS)
-    assert middle == "The" + ELLIPSIS + "jumps"
+    assert middle == "The" + ELLIPSIS + "fox jumps"
+
+
+def test_words_in_the_middle_reuses_the_budget_a_snap_frees() -> None:
+    assert shorten("a b c d e f", 7, where="middle", words=True) == "a...e f"
+
+
+def test_words_ignores_trailing_whitespace_instead_of_cutting_a_word() -> None:
+    assert shorten("alpha beta gamma ", 12, where="middle", words=True) == "alpha..."
+    assert shorten("word " * 5, 12, where="middle", words=True) == "word...word "
 
 
 def test_words_falls_back_to_a_hard_cut_for_one_long_word() -> None:

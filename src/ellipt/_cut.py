@@ -28,46 +28,56 @@ def _take_right(sizes: list[int], budget: int, stop: int) -> tuple[int, int]:
     return start, used
 
 
-def cut(sizes: list[int], budget: int, where: str) -> tuple[int, int]:
-    """Return ``(left, right)`` keeping at most ``budget`` in total size."""
+def cut(
+    sizes: list[int], budget: int, where: str, spaces: list[bool] | None = None
+) -> tuple[int, int]:
+    """Return ``(left, right)`` keeping at most ``budget`` in total size.
+
+    With ``spaces`` (one flag per cluster: is it whitespace) every cut is moved to a word
+    boundary and the whitespace next to the marker is dropped. If a single word fills
+    the whole budget, the hard cut is used instead of returning nothing.
+    """
     count = len(sizes)
     if where == "end":
-        return _take_left(sizes, budget, 0, count)[0], count
+        left = _take_left(sizes, budget, 0, count)[0]
+        return (snap_left(spaces, left, False) if spaces else left), count
     if where == "start":
-        return 0, _take_right(sizes, budget, 0)[0]
+        right = _take_right(sizes, budget, 0)[0]
+        return 0, (snap_right(spaces, right, False) if spaces else right)
     left, used_left = _take_left(sizes, budget - budget // 2, 0, count)
+    if spaces:
+        left = snap_left(spaces, left, True)
+        used_left = sum(sizes[:left])
     right, used_right = _take_right(sizes, budget - used_left, left)
-    # A wide cluster may have stopped the left side early: give it what is left over.
-    left, _ = _take_left(sizes, budget - used_left - used_right, left, right)
+    if spaces:
+        right = snap_right(spaces, right, True)
+        used_right = sum(sizes[right:])
+    # A wide cluster or a word snap may have left budget unused: hand it back.
+    more, _ = _take_left(sizes, budget - used_left - used_right, left, right)
+    left = max(left, snap_left(spaces, more, True)) if spaces else more
+    if spaces and left == 0 and right == count:
+        return cut(sizes, budget, where)
     return left, right
 
 
-def _space(clusters: list[str], index: int) -> bool:
-    return 0 <= index < len(clusters) and clusters[index].isspace()
-
-
-def words_left(clusters: list[str], left: int) -> int:
-    """Move a head end back to a whitespace boundary and drop trailing whitespace.
-
-    Returns ``left`` unchanged when the head is a single word with no space to back off
-    to, so a hard cut is used instead of an empty head.
-    """
+def snap_left(spaces: list[bool], left: int, allow_empty: bool) -> int:
+    """Move a head end back to a word boundary and drop the whitespace before it."""
     end = left
-    if left < len(clusters) and not _space(clusters, left) and not _space(clusters, left - 1):
-        while end > 0 and not _space(clusters, end - 1):
+    if left < len(spaces) and left > 0 and not spaces[left] and not spaces[left - 1]:
+        while end > 0 and not spaces[end - 1]:
             end -= 1
-    while end > 0 and _space(clusters, end - 1):
+    while end > 0 and spaces[end - 1]:
         end -= 1
-    return end if end > 0 else left
+    return end if end > 0 or allow_empty else left
 
 
-def words_right(clusters: list[str], right: int) -> int:
-    """Move a tail start forward to a whitespace boundary and drop leading whitespace."""
-    count = len(clusters)
+def snap_right(spaces: list[bool], right: int, allow_empty: bool) -> int:
+    """Move a tail start forward to a word boundary and drop the whitespace after it."""
+    count = len(spaces)
     start = right
-    if right > 0 and not _space(clusters, right) and not _space(clusters, right - 1):
-        while start < count and not _space(clusters, start):
+    if 0 < right < count and not spaces[right] and not spaces[right - 1]:
+        while start < count and not spaces[start]:
             start += 1
-    while start < count and _space(clusters, start):
+    while start < count and spaces[start]:
         start += 1
-    return start if start < count else right
+    return start if start < count or allow_empty else right

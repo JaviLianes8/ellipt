@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from ._cut import cut, words_left, words_right
+from ._cut import cut
 from ._measure import Unit, check_unit, cluster_size, clusters, size_of
 from ._width import check_ambiguous
 
@@ -62,7 +62,7 @@ def _check(text: str, limit: int, where: str, marker: str) -> None:
     if where not in ("start", "middle", "end"):
         raise ValueError(f"where must be 'start', 'middle' or 'end', not {where!r}")
     if limit < 0:
-        raise ValueError(f"width must be non-negative, not {limit}")
+        raise ValueError(f"limit must be non-negative, not {limit}")
 
 
 def truncate(
@@ -85,8 +85,9 @@ def truncate(
     the limit. The cut always falls on an extended grapheme cluster boundary (UAX #29),
     so accents, flags and emoji ZWJ sequences are kept whole or dropped whole.
 
-    ``words=True`` moves the cut back to whitespace and trims the whitespace next to the
+    ``words=True`` moves each cut to whitespace and trims the whitespace next to the
     marker, unless a single word fills the budget, in which case the cut stays hard.
+    Tabs and other controls are zero columns; expand tabs first if they matter.
     ``ambiguous`` (1 or 2) is the width of East Asian Ambiguous characters in columns.
 
     Text that already fits is returned whole. A marker larger than ``limit``, a negative
@@ -108,14 +109,15 @@ def truncate(
         return Truncation(text, text, "", "", text, unit, limit, size)
     marker_size = size_of(marker, unit, ambiguous)
     if marker_size > limit:
-        raise ValueError(f"marker of width {marker_size} does not fit in width {limit}")
-    parts = clusters(text)
+        raise ValueError(f"marker of size {marker_size} does not fit in limit {limit} ({unit})")
+    # Cluster boundaries depend only on what precedes them, so an end cut counted in
+    # chars or bytes (every cluster at least 1) only needs the first limit + 1 code points.
+    window = text[: limit + 1] if where == "end" and unit in ("chars", "bytes") else text
+    parts = clusters(window)
     sizes = [cluster_size(c, unit, ambiguous) for c in parts]
+    spaces = [c.isspace() for c in parts] if words else None
     for budget in range(limit - marker_size, -1, -1):
-        left, right = cut(sizes, budget, where)
-        if words:
-            left = words_left(parts, left) if where != "start" else left
-            right = words_right(parts, right) if where != "end" else right
+        left, right = cut(sizes, budget, where, spaces)
         head, tail = "".join(parts[:left]), "".join(parts[right:])
         result = head + marker + tail
         # A marker that joins a neighbouring cluster can change its size; re-measure.

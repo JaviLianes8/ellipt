@@ -18,6 +18,8 @@ def _separators(path: str, sep: str | None) -> list[int]:
 def _shorten_name(name: str, limit: int, unit: Unit, marker: str, ambiguous: int) -> str:
     """Shorten a file name in the middle of its stem, keeping the extension if it can."""
     dot = name.rfind(".")
+    if name[:dot].lower().endswith(".tar"):  # keep .tar.gz, .tar.xz and friends together
+        dot -= 4
     if 0 < dot < len(name) - 1 and dot in {0, *grapheme_ends(name)}:
         stem, ext = name[:dot], name[dot:]
         room = limit - size_of(ext, unit, ambiguous)
@@ -42,13 +44,15 @@ def shorten_path(
 ) -> str:
     r"""Shorten a path to at most ``limit`` by dropping whole directories from the middle.
 
-    The first component (``/``, ``C:\``,``~/`` or a relative top directory) and the
-    file name are kept, and as many directories next to the file name as fit, like the
-    middle truncation of macOS Finder and editor tab titles. When only ``marker/name``
-    fits the root goes too, and when even that is too long the file name alone is shown,
-    shortened in the middle of its stem with the extension kept. ``sep`` is the
+    The first component (``/``, ``C:\``, ``~/``, ``\\server\share\`` or a relative
+    top directory) and the file name are kept, and as many directories next to the file
+    name as fit, like the middle truncation of macOS Finder and editor tab titles. When
+    only ``marker/name`` fits the root goes too, and when even that is too long the file
+    name alone is shown, shortened in the middle of its stem with the extension (``.gz``
+    or a compound ``.tar.gz``) kept. ``sep`` is the
     separator; by default both ``/`` and ``\`` count. ``unit``, ``marker`` and
-    ``ambiguous`` mean the same as in ``truncate``, and the result never exceeds
+    ``ambiguous`` mean the same as in ``truncate``; an empty marker is rejected because
+    the result would read as a different, real path, and the result never exceeds
     ``limit`` in ``unit``.
 
     >>> shorten_path("/home/me/projects/app/src/main.py", 24)
@@ -58,19 +62,23 @@ def shorten_path(
     >>> shorten_path("photos/2026/an_extremely_long_holiday_name.jpeg", 20)
     'an_ext...y_name.jpeg'
     """
+    if sep is not None and (not isinstance(sep, str) or len(sep) != 1):
+        raise ValueError(f"sep must be a single character, not {sep!r}")
+    if marker == "":
+        raise ValueError("marker must not be empty: the result would look like a real path")
     result = truncate(path, limit, where="middle", unit=unit, marker=marker, ambiguous=ambiguous)
     if not result.truncated:
         return path
     unit = check_unit(unit)
     ambiguous = check_ambiguous(ambiguous)
-    if sep is not None and len(sep) != 1:
-        raise ValueError(f"sep must be a single character, not {sep!r}")
     stops = _separators(path.rstrip("/\\" if sep is None else sep), sep)
     name_start = stops[-1] + 1 if stops else 0
+    # The root is the first component; a UNC or //host root also keeps host and share.
+    first = 3 if len(stops) > 4 and stops[:2] == [0, 1] else 0
     candidates: list[str] = []
-    if len(stops) > 1:
-        head = path[: stops[0] + 1]
-        candidates += [head + marker + path[i:] for i in stops[1:]]
+    if len(stops) > first + 1:
+        head = path[: stops[first] + 1]
+        candidates += [head + marker + path[i:] for i in stops[first + 1 :] if i > stops[first] + 1]
     if stops:
         candidates.append(marker + path[name_start - 1 :])
     for candidate in candidates:

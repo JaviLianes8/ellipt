@@ -34,7 +34,8 @@ def test_directories_go_first_then_the_root_then_the_name(limit: int, expected: 
 def test_windows_paths_keep_the_drive() -> None:
     path = r"C:\Users\me\AppData\Local\Temp\build.log"
     assert shorten_path(path, 24) == "C:\\...\\Temp\\build.log"
-    assert shorten_path(path, 24, sep="/") != "C:\\...\\Temp\\build.log"
+    # With "/" as the only separator the whole path is one name, cut in its stem.
+    assert shorten_path(path, 24, sep="/") == "C:\\Users\\...mp\\build.log"
 
 
 def test_relative_paths_keep_the_top_directory() -> None:
@@ -62,6 +63,18 @@ def test_columns_unit_keeps_wide_names_within_the_limit() -> None:
     assert measure(result, "columns") <= 16 and result.endswith(".jpg")
 
 
-def test_bad_separator_is_rejected() -> None:
+def test_unc_and_double_slash_roots_keep_host_and_share() -> None:
+    unc = "\\\\server\\share\\dir\\sub\\file.txt"
+    assert shorten_path(unc, 30) == "\\\\server\\share\\...\\file.txt"
+    assert shorten_path("//host/share/a/b/c/d.txt", 23) == "//host/share/.../d.txt"
+
+
+def test_compound_extensions_stay_together() -> None:
+    assert shorten_path("/x/" + "n" * 30 + ".tar.gz", 15) == "nnn...nn.tar.gz"
+
+
+def test_bad_separator_and_empty_marker_are_rejected_even_when_the_path_fits() -> None:
     with pytest.raises(ValueError, match="single character"):
-        shorten_path(POSIX, 10, sep="//")
+        shorten_path("ab", 10, sep="//")
+    with pytest.raises(ValueError, match="must not be empty"):
+        shorten_path("ab", 10, marker="")
