@@ -3,8 +3,8 @@
 Progress:
 
 - [x] Brainstorm (this file)
-- [ ] UCD snapshot, generator and embedded tables (Unicode 18.0.0)
-- [ ] Grapheme-safe cutting and the four units (chars, graphemes, columns, bytes)
+- [x] UCD snapshot, generator and embedded tables (Unicode 18.0.0)
+- [x] Grapheme-safe cutting and the four units (chars, graphemes, columns, bytes)
 - [ ] Typed `Truncation` result, word-aware cutting, `measure`
 - [ ] Path-aware middle truncation (`shorten_path`)
 - [ ] Command line tool

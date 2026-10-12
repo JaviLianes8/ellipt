@@ -4,7 +4,19 @@ import ellipt
 
 # The public API. Add every exported name here as the library grows; this list is the
 # contract and the test below fails if the module and this list disagree.
-PUBLIC_API: list[str] = ["Where", "shorten"]
+PUBLIC_API: list[str] = [
+    "ELLIPSIS",
+    "UNICODE_VERSION",
+    "UNITS",
+    "Truncation",
+    "Unit",
+    "Where",
+    "iter_graphemes",
+    "measure",
+    "shorten",
+    "shorten_path",
+    "truncate",
+]
 
 
 def test_all_lists_exactly_the_public_api() -> None:
