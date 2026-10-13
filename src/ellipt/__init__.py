@@ -13,7 +13,7 @@ from ._path import shorten_path
 from ._props import UNICODE_VERSION
 from ._shorten import shorten
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 __all__ = [
     "ELLIPSIS",
