@@ -106,7 +106,15 @@ def test_words_falls_back_to_a_hard_cut_for_one_long_word() -> None:
 
 def test_a_zero_limit_works_with_an_empty_marker() -> None:
     assert truncate("abc", 0, marker="").text == ""
-    assert truncate("", 0).text == ""
+    assert truncate("", 0, marker="").text == ""
+
+
+def test_the_marker_must_fit_even_when_the_text_does() -> None:
+    # Like textwrap.shorten: a limit that cannot hold the marker is an error for any text.
+    with pytest.raises(ValueError, match="marker of size 3 does not fit in limit 0"):
+        truncate("", 0)
+    with pytest.raises(ValueError, match="marker of size 3 does not fit in limit 2"):
+        shorten("hi", 2)
 
 
 @pytest.mark.parametrize(

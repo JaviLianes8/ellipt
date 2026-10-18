@@ -2,21 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
+from ._checks import Unit, check_ambiguous, check_str, check_unit
 from ._graphemes import grapheme_ends
-from ._width import check_ambiguous, cluster_width
-
-Unit = Literal["chars", "graphemes", "columns", "bytes"]
-UNITS: tuple[Unit, ...] = ("chars", "graphemes", "columns", "bytes")
-
-
-def check_unit(unit: str) -> Unit:
-    """Return ``unit`` after checking it names a supported unit."""
-    for known in UNITS:
-        if unit == known:
-            return known
-    raise ValueError(f"unit must be one of {', '.join(map(repr, UNITS))}, not {unit!r}")
+from ._width import cluster_width
 
 
 def clusters(text: str) -> list[str]:
@@ -46,6 +34,8 @@ def size_of(text: str, unit: Unit, ambiguous: int) -> int:
         return len(text)
     if unit == "bytes":
         return len(text.encode("utf-8", "surrogatepass"))
+    if unit == "graphemes":
+        return sum(1 for _ in grapheme_ends(text))
     return sum(cluster_size(c, unit, ambiguous) for c in clusters(text))
 
 
@@ -56,14 +46,16 @@ def measure(text: str, unit: Unit = "chars", *, ambiguous: int = 1) -> int:
     clusters (UAX #29, what a reader sees as one character), ``"columns"`` counts
     terminal display cells (UAX #11 East Asian Width, emoji sequences as one wide
     glyph, East Asian Ambiguous characters as ``ambiguous`` cells) and ``"bytes"``
-    counts UTF-8 bytes.
+    counts UTF-8 bytes, a lone surrogate as three. A wrong type raises ``TypeError``;
+    an unknown unit or an ``ambiguous`` other than 1 or 2 raises ``ValueError``.
 
     >>> flag = "\\U0001f1ea\\U0001f1f8"
     >>> [measure(flag, u) for u in ("chars", "graphemes", "columns", "bytes")]
     [2, 1, 2, 8]
     >>> measure("\\u2026", "bytes"), measure("...", "bytes")
     (3, 3)
+    >>> measure("\\u00a1", "columns"), measure("\\u00a1", "columns", ambiguous=2)
+    (1, 2)
     """
-    if not isinstance(text, str):
-        raise TypeError(f"text must be str, not {type(text).__name__}")
+    text = check_str("text", text)
     return size_of(text, check_unit(unit), check_ambiguous(ambiguous))

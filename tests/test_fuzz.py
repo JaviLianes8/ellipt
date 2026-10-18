@@ -43,9 +43,7 @@ def test_truncate_keeps_its_promise(seed: int) -> None:
         limit = rng.randrange(0, 24)
         words = rng.random() < 0.3
         args = {"where": where, "unit": unit, "marker": marker, "ambiguous": ambiguous}
-        if measure(text, unit, ambiguous=ambiguous) > limit and (
-            measure(marker, unit, ambiguous=ambiguous) > limit
-        ):
+        if measure(marker, unit, ambiguous=ambiguous) > limit:
             with pytest.raises(ValueError, match="does not fit"):
                 truncate(text, limit, words=words, **args)  # type: ignore[arg-type]
             continue

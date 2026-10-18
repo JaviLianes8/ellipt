@@ -70,29 +70,42 @@ def test_files_are_read_in_order(
 
 
 @pytest.mark.parametrize(
-    ("args", "data", "message"),
+    ("args", "message"),
     [
-        (["2"], "hello\n", "does not fit"),
-        (["-1"], "x\n", "non-negative"),
-        (["ten"], "x\n", "not a whole number"),
-        (["5", "--path", "--words"], "x\n", "--path"),
-        (["5", "--path", "-w", "end"], "x\n", "--path"),
-        (["5", "-u", "pixels"], "x\n", "invalid choice"),
-        (["5", "missing-file.txt"], "", "missing-file.txt"),
+        (["2"], "does not fit"),
+        (["0", "--path"], "does not fit"),
+        (["5", "--path", "-m", ""], "must not be empty"),
+        (["-1"], "non-negative"),
+        (["ten"], "not a whole number"),
+        (["5", "--path", "--words"], "--path"),
+        (["5", "--path", "-w", "end"], "--path"),
+        (["5", "-u", "pixels"], "invalid choice"),
+        (["5", "--ambiguous", "3"], "invalid choice"),
+        (["5", "-m", "\udcff"], "not valid UTF-8"),
+        (["5", "--tabsize", "-2"], "non-negative"),
+        ([], "required"),
     ],
 )
-def test_errors_go_to_stderr_with_status_1(
+def test_usage_errors_exit_2_before_reading_input(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     args: list[str],
-    data: str,
     message: str,
 ) -> None:
-    try:
-        code, out, err = _run(monkeypatch, capsys, args, data)
-    except SystemExit as exc:
-        code, out, err = int(str(exc.code)), "", capsys.readouterr().err
-    assert code == 1 and out == "" and message in err
+    monkeypatch.setattr(sys, "stdin", None)  # reading would fail: the check comes first
+    monkeypatch.setattr(sys, "stdout", _Stream())
+    with pytest.raises(SystemExit) as exited:
+        main(args)
+    err = capsys.readouterr().err
+    assert exited.value.code == 2 and message in err and err.startswith("usage: ellipt")
+
+
+def test_a_missing_file_exits_1_and_names_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, err = _run(monkeypatch, capsys, ["5", "missing-file.txt"], "")
+    assert (code, out) == (1, "") and err.startswith("ellipt: error: ")
+    assert "missing-file.txt" in err
 
 
 def test_invalid_utf8_is_an_error(
@@ -137,7 +150,7 @@ def test_ellipsis_flag_tabs_and_bom(
 def test_marker_and_ellipsis_are_exclusive(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exited:
         main(["4", "-e", "-m", "~"])
-    assert exited.value.code == 1 and "not allowed" in capsys.readouterr().err
+    assert exited.value.code == 2 and "not allowed" in capsys.readouterr().err
 
 
 def test_a_decoding_error_names_the_file_and_its_own_line_number(

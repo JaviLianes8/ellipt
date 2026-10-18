@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import errno
 import os
 import sys
-from collections.abc import Iterator, Sequence
-from typing import IO, NoReturn
+from collections.abc import Sequence
+from typing import NoReturn
 
 from . import __version__
-from ._core import ELLIPSIS, truncate
-from ._measure import UNITS
-from ._path import shorten_path
+from ._checks import UNITS, WHERES
+from ._cli_io import PipeClosed, cut_line, run, write
+from ._core import ELLIPSIS
 
 EXAMPLES = """\
 examples:
@@ -27,28 +26,37 @@ examples:
 Lines are read as UTF-8 (a leading byte order mark is dropped) and written as UTF-8,
 keeping each LF or CRLF line ending. The limit counts the marker, and no grapheme
 cluster (accent, flag, emoji sequence) is ever split. With --unit columns, tabs are
-expanded to spaces first (--tabsize); ANSI escape sequences are not recognised, so
-strip colours before piping. Errors go to standard error with exit status 1.
+expanded to spaces first (--tabsize stops, wide characters count as two columns);
+ANSI escape sequences are not recognised, so strip colours before piping.
+Exit status: 0 on success (also when the reader stops early, as with | head),
+1 when an input cannot be read or is not UTF-8, 2 for a usage error, such as
+a marker that does not fit in LIMIT.
 """
 
-
-class _PipeClosed(Exception):
-    """The reader of standard output went away."""
+# argparse quotes the offending argument whole; a message is cut to this length.
+MESSAGE_LIMIT = 300
 
 
 class _Parser(argparse.ArgumentParser):
     def error(self, message: str) -> NoReturn:
-        self.print_usage(sys.stderr)
-        self.exit(1, f"{self.prog}: error: {message}\n")
+        if len(message) > MESSAGE_LIMIT:
+            message = message[:MESSAGE_LIMIT] + "..."
+        if sys.stderr is not None:
+            self.print_usage(sys.stderr)
+            print(f"{self.prog}: error: {message}", file=sys.stderr)
+        raise SystemExit(2)
 
 
 def _non_negative(value: str) -> int:
     try:
         number = int(value)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"not a whole number: {value!r}") from None
+        shown = value if len(value) <= 40 else value[:40] + "..."
+        digits = value.strip().lstrip("+-").replace("_", "")
+        problem = "too large" if digits.isdigit() else "not a whole number"
+        raise argparse.ArgumentTypeError(f"{problem}: {shown!r}") from None
     if number < 0:
-        raise argparse.ArgumentTypeError(f"must be non-negative: {number}")
+        raise argparse.ArgumentTypeError("must be non-negative")
     return number
 
 
@@ -63,9 +71,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("limit", type=_non_negative, metavar="LIMIT", help="maximum size")
     parser.add_argument("files", nargs="*", metavar="FILE", help="input files (default: stdin)")
-    parser.add_argument(
-        "-w", "--where", choices=("start", "middle", "end"), help="where to cut (default: end)"
-    )
+    parser.add_argument("-w", "--where", choices=WHERES, help="where to cut (default: end)")
     parser.add_argument(
         "-u",
         "--unit",
@@ -105,82 +111,46 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _lines(names: Sequence[str]) -> Iterator[tuple[str, int, bytes]]:
-    """Yield ``(source name, line number, raw line)`` with any UTF-8 BOM removed."""
-    if not names:
-        yield from _numbered("<stdin>", sys.stdin.buffer)
-        return
-    for name in names:
-        with open(name, "rb") as handle:
-            yield from _numbered(name, handle)
-
-
-def _numbered(name: str, handle: IO[bytes]) -> Iterator[tuple[str, int, bytes]]:
-    for number, raw in enumerate(handle, 1):
-        yield name, number, raw[3:] if number == 1 and raw.startswith(b"\xef\xbb\xbf") else raw
-
-
-def _write(out: IO[bytes], data: bytes) -> None:
+def _check(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Reject option combinations before any input is read."""
+    if args.path and (args.where not in (None, "middle") or args.words):
+        parser.error("--path always cuts in the middle and does not take --words")
     try:
-        out.write(data)
-    except OSError as exc:
-        # Windows reports a closed pipe as EINVAL rather than EPIPE.
-        if isinstance(exc, BrokenPipeError) or exc.errno in (errno.EPIPE, errno.EINVAL):
-            raise _PipeClosed from None
-        raise
+        args.marker.encode("utf-8")
+    except UnicodeEncodeError:
+        parser.error("the marker is not valid UTF-8 text")
+    try:
+        cut_line(args, "")  # the library checks every option against LIMIT
+    except ValueError as exc:
+        parser.error(str(exc))
 
 
-def _split_ending(line: str) -> tuple[str, str]:
-    for ending in ("\r\n", "\n", "\r"):
-        if line.endswith(ending):
-            return line[: -len(ending)], ending
-    return line, ""
-
-
-def _run(args: argparse.Namespace, out: IO[bytes]) -> None:
-    for name, number, raw in _lines(args.files):
-        try:
-            line = raw.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise ValueError(f"{name}: line {number} is not valid UTF-8: {exc.reason}") from None
-        body, ending = _split_ending(line)
-        if args.unit == "columns" and args.tabsize and "\t" in body:
-            body = body.expandtabs(args.tabsize)
-        if args.path:
-            short = shorten_path(
-                body, args.limit, unit=args.unit, marker=args.marker, ambiguous=args.ambiguous
-            )
-        else:
-            short = truncate(
-                body,
-                args.limit,
-                where=args.where or "end",
-                unit=args.unit,
-                marker=args.marker,
-                words=args.words,
-                ambiguous=args.ambiguous,
-            ).text
-        _write(out, (short + ending).encode("utf-8"))
+def _report(message: str) -> int:
+    if sys.stderr is not None:
+        print(f"ellipt: error: {message}", file=sys.stderr)
+    return 1
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command line tool and return its exit status."""
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.path and (args.where not in (None, "middle") or args.words):
-        parser.error("--path always cuts in the middle and does not take --words")
+    _check(parser, args)
+    out = getattr(sys.stdout, "buffer", None)
+    if out is None:
+        return _report("standard output is closed")
     try:
-        _run(args, sys.stdout.buffer)
-        _write(sys.stdout.buffer, b"")
-        sys.stdout.flush()
-    except (_PipeClosed, BrokenPipeError):
+        run(args, out, getattr(sys.stdin, "buffer", None))
+        write(out)
+    except PipeClosed:
         # Point stdout at the null device so the flush at exit cannot fail again.
         with contextlib.suppress(OSError, ValueError, AttributeError):
             null = os.open(os.devnull, os.O_WRONLY)
             os.dup2(null, sys.stdout.fileno())
             os.close(null)
         return 0
+    except KeyboardInterrupt:
+        return 130
     except (OSError, ValueError) as exc:
-        print(f"ellipt: error: {exc}", file=sys.stderr)
-        return 1
+        return _report(str(exc))
     return 0
