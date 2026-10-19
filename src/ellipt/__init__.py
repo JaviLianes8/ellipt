@@ -33,6 +33,7 @@ __version__ = "1.0.0"
 for _public in (Truncation, iter_graphemes, measure, shorten, shorten_path, truncate):
     _public.__module__ = __name__
 for _member in vars(Truncation).values():
+    _member = getattr(_member, "fget", _member)  # a property's getter
     if callable(_member) and str(getattr(_member, "__module__", "")).startswith("ellipt._"):
         _member.__module__ = __name__
 del _public, _member
