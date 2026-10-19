@@ -30,15 +30,15 @@ def _linear(make: Callable[[int], Callable[[], object]]) -> None:
 
 TEXTS: dict[str, Callable[[int], str]] = {
     "ascii": lambda n: "abcdefghij" * (n // 10),
-    "wide": lambda n: "你好" * (n // 2),
-    "combining": lambda n: "é̂" * (n // 3),
-    "zwj family": lambda n: "\U0001f468‍\U0001f469‍\U0001f467" * (n // 5),
+    "wide": lambda n: "\u4f60\u597d" * (n // 2),
+    "combining": lambda n: "e\u0301\u0302" * (n // 3),
+    "zwj family": lambda n: "\U0001f468\u200d\U0001f469\u200d\U0001f467" * (n // 5),
     "flags": lambda n: "\U0001f1ea\U0001f1f8" * (n // 2),
-    "one hangul cluster": lambda n: "ᄀ" * n,
+    "one hangul cluster": lambda n: "\u1100" * n,
     "words": lambda n: "ab " * (n // 3),
     "one long word": lambda n: "a" * n,
-    "zero width": lambda n: "​" * n,
-    "heart then vs16 marker": lambda n: "❤" * n,
+    "zero width": lambda n: "\u200b" * n,
+    "heart then vs16 marker": lambda n: "\u2764" * n,
 }
 
 
@@ -51,8 +51,8 @@ def test_truncate_time_grows_linearly(shape: str) -> None:
             for unit in UNITS:
                 truncate(text, 80, where="middle", unit=unit, marker=ELLIPSIS)
                 truncate(text, 80, where="start", unit=unit, words=True)
-            truncate(text, 80, unit="graphemes", words=True, marker="️...")
-            truncate(text, 80, where="middle", unit="columns", words=True, marker="️.")
+            truncate(text, 80, unit="graphemes", words=True, marker="\ufe0f...")
+            truncate(text, 80, where="middle", unit="columns", words=True, marker="\ufe0f.")
             measure(text, "columns")
             sum(1 for _ in iter_graphemes(text))
 
@@ -64,7 +64,7 @@ def test_truncate_time_grows_linearly(shape: str) -> None:
 PATHS: dict[str, Callable[[int], str]] = {
     "many directories": lambda n: "/".join(["dir"] * (n // 4)) + "/file.txt",
     "long relative root": lambda n: "a" * (n // 2) + "/b" * (n // 4) + "/f.txt",
-    "wide directories": lambda n: "/" + "/".join(["世界"] * (n // 3)) + "/f",
+    "wide directories": lambda n: "/" + "/".join(["\u4e16\u754c"] * (n // 3)) + "/f",
     "unc": lambda n: "\\\\host\\share\\" + "\\".join(["d"] * (n // 2)) + "\\f",
     "long name": lambda n: "/x/y/" + "n" * n + ".tar.gz",
     "no separator": lambda n: "n" * n,
@@ -97,6 +97,6 @@ def test_a_path_of_200_000_characters_is_shortened_without_building_every_candid
 
 def test_a_marker_that_widens_its_neighbour_backs_off_a_bounded_number_of_times() -> None:
     # Each heart is one column; VS16 at the start of the marker makes the last one two.
-    text = "❤" * 100_000
-    result = truncate(text, 50_000, unit="columns", marker="️...")
-    assert result.size == 50_000 and result.head == "❤" * 49_996
+    text = "\u2764" * 100_000
+    result = truncate(text, 50_000, unit="columns", marker="\ufe0f...")
+    assert result.size == 50_000 and result.head == "\u2764" * 49_996

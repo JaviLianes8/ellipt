@@ -38,7 +38,7 @@ WRONG_TYPES: list[tuple[str, Call, str]] = [
     ("width_aware", lambda: shorten("x", 3, width_aware=None), "width_aware must be bool"),  # type: ignore[arg-type]
     ("measure text", lambda: measure(None), "text must be str, not NoneType"),  # type: ignore[arg-type]
     ("measure unit", lambda: measure("x", 1), "unit must be str, not int"),  # type: ignore[arg-type]
-    ("measure ambiguous", lambda: measure("¡", "columns", ambiguous=2.0), "ambiguous"),  # type: ignore[arg-type]
+    ("measure ambiguous", lambda: measure("\u00a1", "columns", ambiguous=2.0), "ambiguous"),  # type: ignore[arg-type]
     ("path", lambda: shorten_path(None, 5), "path must be str, not NoneType"),  # type: ignore[arg-type]
     ("sep", lambda: shorten_path("a/b", 5, sep=b"/"), "sep must be str, not bytes"),  # type: ignore[arg-type]
     ("iter_graphemes", lambda: iter_graphemes(None), "text must be str, not NoneType"),  # type: ignore[arg-type]
@@ -116,7 +116,7 @@ def test_integer_types_other_than_int_and_bool_are_accepted() -> None:
     assert truncate("abcdef", Index(4)).limit == 4  # type: ignore[arg-type]
     assert type(truncate("abcdef", Index(4)).limit) is int  # type: ignore[arg-type]
     assert shorten("abcdef", Index(4)) == "a..."  # type: ignore[arg-type]
-    assert measure("¡", "columns", ambiguous=Index(2)) == 2  # type: ignore[arg-type]
+    assert measure("\u00a1", "columns", ambiguous=Index(2)) == 2  # type: ignore[arg-type]
     assert shorten_path("/a/b/c/d.txt", Index(9)) == ".../d.txt"  # type: ignore[arg-type]
 
 

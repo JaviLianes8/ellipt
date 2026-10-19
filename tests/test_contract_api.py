@@ -56,7 +56,7 @@ def test_signatures_are_pinned(name: str) -> None:
 
 
 def test_constants_have_their_documented_values() -> None:
-    assert ellipt.ELLIPSIS == "…"
+    assert ellipt.ELLIPSIS == "\u2026"
     assert ellipt.UNITS == ("chars", "graphemes", "columns", "bytes")
     assert isinstance(ellipt.UNITS, tuple)
     assert ellipt.UNICODE_VERSION == "18.0.0"
@@ -119,7 +119,7 @@ def test_shorten_is_the_text_of_truncate() -> None:
     for where in ("start", "middle", "end"):
         for unit in ellipt.UNITS:
             for words in (False, True):
-                text = "alpha beta 世界 gamma é delta"
+                text = "alpha beta \u4e16\u754c gamma e\u0301 delta"
                 kwargs = {"where": where, "unit": unit, "words": words, "ambiguous": 2}
                 expected = ellipt.truncate(text, 12, **kwargs).text  # type: ignore[arg-type]
                 assert ellipt.shorten(text, 12, **kwargs) == expected  # type: ignore[arg-type]

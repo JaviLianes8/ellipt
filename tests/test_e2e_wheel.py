@@ -20,7 +20,7 @@ import pytest
 import ellipt
 
 ROOT = Path(__file__).resolve().parent.parent
-FAMILY = "\U0001f468‍\U0001f469‍\U0001f467"
+FAMILY = "\U0001f468\u200d\U0001f469\u200d\U0001f467"
 MODULES = [*sorted(p.name for p in (ROOT / "src" / "ellipt").glob("*.py")), "py.typed"]
 CONSUMER = """
 import pickle, sys
@@ -28,12 +28,12 @@ import ellipt
 from ellipt import ELLIPSIS, Truncation, measure, shorten, shorten_path, truncate
 assert ellipt.__file__.startswith(sys.argv[1]), ellipt.__file__
 r = truncate("hello brave new world", 15, marker=ELLIPSIS, words=True)
-assert (r.text, r.removed, r.truncated) == ("hello brave…", " new world", True)
+assert (r.text, r.removed, r.truncated) == ("hello brave\u2026", " new world", True)
 assert isinstance(r, Truncation) and pickle.loads(pickle.dumps(r)) == r
-assert shorten("你好世界", 5, unit="columns", marker=ELLIPSIS) == "你好…"
+assert shorten("\u4f60\u597d\u4e16\u754c", 5, unit="columns", marker="~") == "\u4f60\u597d~"
 assert measure("\U0001f1ea\U0001f1f8", "bytes") == 8
 assert shorten_path("/home/me/projects/app/src/main.py", 20) == "/.../app/src/main.py"
-assert list(ellipt.iter_graphemes("éx")) == ["é", "x"]
+assert list(ellipt.iter_graphemes("e\u0301x")) == ["e\u0301", "x"]
 print(ellipt.__version__, ellipt.UNICODE_VERSION)
 """
 
@@ -117,10 +117,10 @@ def test_the_installed_wheel_works_from_an_empty_folder(
 
     done = cli(["8"], b"hello world\nok\r\n")
     assert (done.returncode, done.stdout, done.stderr) == (0, b"hello...\nok\r\n", b"")
-    done = cli(["4", "--marker", "…"], f"ab{FAMILY}cd\n".encode())
-    assert done.stdout == "ab…\n".encode()  # the family is 2 columns: whole or not at all
+    done = cli(["4", "--marker", "\u2026"], f"ab{FAMILY}cd\n".encode())
+    assert done.stdout == "ab\u2026\n".encode()  # the family is 2 columns: whole or not at all
     done = cli(["5", "-e"], f"ab{FAMILY}cd\n".encode())
-    assert done.stdout == f"ab{FAMILY}…\n".encode()
+    assert done.stdout == f"ab{FAMILY}\u2026\n".encode()
     done = cli(["16", "--path"], b"/srv/www/site/public/index.html\n")
     assert done.stdout == b"/.../index.html\n"
     done = cli(["9", "-w", "middle", "-u", "bytes"], b"0123456789abcdef\n")
@@ -128,7 +128,7 @@ def test_the_installed_wheel_works_from_an_empty_folder(
     source = tmp_path / "in.txt"
     source.write_bytes(b"\xef\xbb\xbfa\tbcdefghijk\n")
     done = cli(["12", "-e", str(source)])
-    assert done.stdout == "a       bcd…\n".encode()
+    assert done.stdout == "a       bcd\u2026\n".encode()
     failed = cli(["2"], b"hello\n")
     assert failed.returncode == 2 and b"does not fit" in failed.stderr and failed.stdout == b""
     failed = cli(["5"], b"ok\n\xff\n")

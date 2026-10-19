@@ -41,7 +41,7 @@ def _texts(seed: int, count: int) -> list[str]:
 def _official() -> list[str]:
     lines = (UCD / "GraphemeBreakTest.txt").read_text(encoding="utf-8").splitlines()
     bodies = [line.split("#", 1)[0].split()[1:] for line in lines if line.split("#", 1)[0]]
-    return ["".join(chr(int(t, 16)) for t in b if t not in "÷×") for b in bodies if b]
+    return ["".join(chr(int(t, 16)) for t in b if t not in "\u00f7\u00d7") for b in bodies if b]
 
 
 def _property(name: str, field: int, value: str) -> set[int]:
