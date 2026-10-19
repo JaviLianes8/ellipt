@@ -10,9 +10,10 @@ Unicode 18.0.0 tables embedded, with a command line tool for pipes.
 
 ## The problem
 
-`s[:n] + "..."` is longer than `n`, splits `"café"` into `"cafe"` and leaves half
-of an emoji ZWJ sequence behind. Counting `len(s)` is wrong for a terminal (`"你好"`
-is two code points but four columns) and wrong for a database column or a file name
+`s[:n] + "..."` is longer than `n`, splits `"cafe\u0301"` (an accented e) into `"cafe"`
+and leaves half of an emoji ZWJ sequence behind. Counting `len(s)` is wrong for a
+terminal (`"\u4f60\u597d"` is two code points but four columns) and wrong for a
+database column or a file name
 limited in bytes. Keeping the end of a log line or both ends of a path needs more code
 again. `ellipt` does all of it with one call and one guarantee: the result never exceeds
 the limit in the unit you chose.
@@ -80,8 +81,7 @@ shorten_path("photos/an_extremely_long_holiday_name.jpeg", 20)  # -> 'an_ext...y
 ## Command line
 
 ```
-$ printf 'hello world
-' | ellipt 8
+$ printf 'hello world\n' | ellipt 8
 hello...
 $ git ls-files | ellipt 28 --path
 $ ellipt 30 --where middle --ellipsis notes.txt
