@@ -75,7 +75,11 @@ def test_the_wheel_holds_the_package_and_its_licences_only(built: tuple[Path, Pa
     archive = zipfile.ZipFile(built[0])
     assert "ellipt = ellipt._cli:main" in archive.read(info + "entry_points.txt").decode()
     meta = archive.read(info + "METADATA").decode()
-    assert f"Version: {ellipt.__version__}" in meta and "Requires-Dist" not in meta
+    assert f"
+Version: {ellipt.__version__}
+" in meta
+    runtime = [r for r in meta.splitlines() if r.startswith("Requires-Dist") and "extra" not in r]
+    assert runtime == []
     assert "Classifier: Development Status :: 5 - Production/Stable" in meta
 
 
