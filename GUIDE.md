@@ -14,8 +14,9 @@ For `truncate(text, limit, where=..., unit=..., marker=..., words=..., ambiguous
 3. `head` and `tail` end on extended grapheme cluster boundaries of `text` (UAX #29).
 4. The size of the result, measured in `unit`, never exceeds `limit`. The marker is
    measured in the same unit and counted inside the limit.
-5. A marker larger than the limit raises `ValueError`, as do a negative limit and an
-   unknown `where`, `unit` or `ambiguous`. Wrong types raise `TypeError`.
+5. A marker larger than the limit raises `ValueError`, even when the text would fit,
+   as do a negative limit and an unknown `where`, `unit` or `ambiguous`. Wrong types
+   raise `TypeError`. See "Errors" below.
 
 `shorten` returns `truncate(...).text`. `shorten_path` keeps promises 1, 3 (at
 separators and in the file name) and 4.
@@ -34,8 +35,15 @@ nonspacing and enclosing marks, format characters (except SOFT HYPHEN) and Hangu
 vowels and final consonants are zero; Wide and Fullwidth are two; East Asian Ambiguous
 characters are `ambiguous` cells (1 by default, 2 for CJK terminals); everything else is
 one. A grapheme cluster that draws as one emoji (VS16, a skin tone, a ZWJ sequence, a
-tag sequence or a flag) is two cells, and an emoji with VS15 is one. These are the same
-rules and the same data as the sibling `cellstr` library.
+tag sequence or a flag) is two cells, and an emoji with VS15 is one.
+
+The test suite checks these widths code point by code point against the `wcwidth`
+package (0.9.2, also Unicode 18.0.0). They agree except for five deliberate choices:
+ellipt counts a control character as 0 columns (wcwidth: -1), a spacing mark such as
+U+093E DEVANAGARI VOWEL SIGN AA by its East Asian Width, here 1 (wcwidth: 0), a prepended concatenation mark such
+as U+0600 ARABIC NUMBER SIGN as 0 (wcwidth: 1), a lone regional indicator as 1 (wcwidth:
+2) and U+2028, U+2029, the Hangul fillers and unassigned default ignorable code points
+at their East Asian Width (wcwidth: 0).
 
 ```python
 from ellipt import ELLIPSIS, measure, truncate
@@ -124,7 +132,36 @@ shorten_path("/srv/www/site/public/", 16)  # -> '/.../public/'
   does this for you with `--tabsize`.
 - ANSI escape sequences are measured as ordinary text. Strip them first.
 - Long inputs: an end cut in `chars` or `bytes` only segments the first `limit + 1` code
-  points. Other cuts segment the whole string once, which is linear in its length.
+  points. Other cuts segment the whole string once, which is linear in its length, and
+  `shorten_path` measures each candidate from precomputed sizes, so a path with tens of
+  thousands of directories is also handled in linear time.
+- A `str` subclass is read as the plain string it holds: its own methods (`__len__`,
+  `encode`, ...) are not used, and every string in the result is a plain `str`.
+
+## Errors
+
+Every argument is checked before the text is examined, so a bad call fails the same way
+whatever the text is.
+
+- `TypeError`: `text`, `path`, `marker`, `where`, `unit` or `sep` that is not a `str`;
+  `limit`, `width` or `ambiguous` that is not an integer (`bool` and `float` are
+  refused; any other type with `__index__`, such as a NumPy integer, is accepted);
+  `words` or `width_aware` that is not a `bool`. `iter_graphemes` raises at the call,
+  not on the first `next()`.
+- `ValueError`: a negative limit, an unknown `where` or `unit`, an `ambiguous` other
+  than 1 or 2, a marker larger than the limit, and for `shorten_path` an empty marker or
+  a `sep` that is not one character; `shorten(width_aware=True)` with a unit other than
+  `"columns"`.
+
+Messages stay short whatever the input: a string you passed is quoted up to 40
+characters, an integer too long to print is described by its size in bits, and the text
+being truncated is never quoted.
+
+The command line tool exits with 0 on success, also when the reader of its output stops
+early (`| head`); 1 when an input file cannot be read or a line is not UTF-8 (the message
+names the file and the line); and 2 for a usage error, which includes any option the
+library would refuse, such as a marker that does not fit in `LIMIT`, before any input is
+read.
 
 ## Unicode data
 
@@ -133,10 +170,13 @@ the Unicode 18.0.0 data files. Those files are not committed: `data/ucd/MANIFEST
 pins their URLs, sizes and SHA-256 checksums, and `python scripts/fetch_upstream.py`
 fetches them into `data/ucd/`. With them in place the test suite regenerates the tables
 and compares them byte for byte, checks the checksums, and runs all 853 cases of the
-official `GraphemeBreakTest.txt` through both the segmenter and the truncation engine;
-without them those tests skip.
+official `GraphemeBreakTest.txt` through both the segmenter and the truncation engine,
+checks that each of the 5,244 sequences of the official `emoji-test.txt` is one grapheme
+cluster that is never cut apart (and two columns when it is fully qualified), and
+compares the segmenter with two independent implementations, `wcwidth` and the ICU
+segmenter of Node.js (when installed); without the files those tests skip.
 
 To move to a new Unicode version, update the URLs, sizes and checksums in
 `data/ucd/MANIFEST.json`, run `python scripts/fetch_upstream.py` and
-`python scripts/gen_ucd_tables.py`, and update the expected case count in
-`tests/test_grapheme_conformance.py`.
+`python scripts/gen_ucd_tables.py`, and update the expected counts in
+`tests/test_grapheme_conformance.py` and `tests/test_emoji_conformance.py`.

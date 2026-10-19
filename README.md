@@ -1,9 +1,22 @@
 # ellipt
 
-Truncate strings with an ellipsis at the start, middle or end. The limit can count code
-points, grapheme clusters, terminal columns or UTF-8 bytes, the marker is counted inside
-the limit, and the cut never splits an accent, a flag or an emoji sequence. Typed, zero
-dependencies, Unicode 18.0.0 tables embedded.
+[![Lianes8 Certified](https://lianes8studio.com/certified/lianes8-certified-badge.svg)](https://lianes8studio.com/certified)
+
+Truncate strings with an ellipsis at the start, middle or end, and be sure the result
+fits. A limit can count code points, grapheme clusters, terminal columns or UTF-8 bytes;
+the marker is counted inside the limit; the cut never splits an accent, a flag or an
+emoji sequence; and you get back exactly what was removed. Typed, zero dependencies,
+Unicode 18.0.0 tables embedded, with a command line tool for pipes.
+
+## The problem
+
+`s[:n] + "..."` is longer than `n`, splits `"cafe\u0301"` (an accented e) into `"cafe"`
+and leaves half of an emoji ZWJ sequence behind. Counting `len(s)` is wrong for a
+terminal (`"\u4f60\u597d"` is two code points but four columns) and wrong for a
+database column or a file name
+limited in bytes. Keeping the end of a log line or both ends of a path needs more code
+again. `ellipt` does all of it with one call and one guarantee: the result never exceeds
+the limit in the unit you chose.
 
 ## Install
 
@@ -78,21 +91,32 @@ $ ellipt 255 --unit bytes --marker "" < titles.txt
 The command reads standard input (or the files given) as UTF-8, keeps each LF or CRLF
 line ending, and counts terminal columns by default, expanding tabs to 8-column stops
 first (`--tabsize`). `--ellipsis` uses U+2026 as the marker without having to type it.
-`ellipt --help` lists every option. Errors go to standard error with exit status 1, and
-a reader that stops early (`| head`) is not an error.
+`ellipt --help` lists every option. The exit status is 0 on success (also when the
+reader stops early, as with `| head`), 1 when an input cannot be read or is not UTF-8,
+and 2 for a usage error such as a marker that does not fit in the limit; errors go to
+standard error.
 
-## Why
+## Why ellipt
 
-`textwrap.shorten` only cuts at the end, collapses whitespace and always cuts on words.
-Plain slicing (`s[:n] + "..."`) splits emoji and accents, overflows a terminal with wide
-characters and can exceed a byte limit. `ellipt` cuts where you ask, in the unit you
-need, and guarantees the result is never longer than the limit. See [GUIDE.md](GUIDE.md)
-for the exact rules, the Unicode sources and the edge cases.
+- `textwrap.shorten` from the standard library only cuts at the end and only between
+  words: a single long word, or Chinese text without spaces, comes back as the bare
+  placeholder `[...]`. It also collapses runs of whitespace even when the text fits, and
+  it counts code points only.
+- Plain slicing counts code points, so it splits combining accents and emoji sequences,
+  overflows a terminal with wide characters and can exceed a byte limit.
+- `wcwidth.clip` cuts by terminal columns but adds no marker, and pads a wide character
+  it splits with a space.
+
+`ellipt` cuts where you ask, in the unit you need, at grapheme cluster boundaries, and
+tells you what it removed. The rules, the Unicode sources and the edge cases are in the
+[guide](https://github.com/JaviLianes8/ellipt/blob/main/GUIDE.md); every release is
+described in the [changelog](https://github.com/JaviLianes8/ellipt/blob/main/CHANGELOG.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE). The embedded Unicode data is covered by the Unicode
-License v3, see [LICENSE-UNICODE](LICENSE-UNICODE).
+MIT, see [LICENSE](https://github.com/JaviLianes8/ellipt/blob/main/LICENSE). The
+embedded Unicode data is covered by the Unicode License v3, see
+[LICENSE-UNICODE](https://github.com/JaviLianes8/ellipt/blob/main/LICENSE-UNICODE).
 
 ## Links
 

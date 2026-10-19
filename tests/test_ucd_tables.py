@@ -60,7 +60,10 @@ def test_every_snapshot_file_is_the_same_unicode_version() -> None:
     for path in UCD.glob("*.txt"):
         if path.name in MANIFEST:
             head = path.read_text(encoding="utf-8")[:2000]
-            assert re.search(rf"(-|Version: ){re.escape(version)}", head), path.name
+            # The emoji files name the version without its last part ("Version: 18.0").
+            short = re.escape(version.rsplit(".", 1)[0])
+            pattern = rf"(-|Version: ){re.escape(version)}|Version: {short}\n"
+            assert re.search(pattern, head), path.name
 
 
 def test_spot_properties_from_the_tables() -> None:

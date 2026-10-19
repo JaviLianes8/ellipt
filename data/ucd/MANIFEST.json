@@ -52,5 +52,14 @@
     "size": 108719,
     "sha256": "80d00f8e616a0ef27fd6b8de3b758c06383b5d917e2977709578e68baf733bf1",
     "licence": "Unicode License v3 (https://www.unicode.org/license.txt), see LICENSE-UNICODE"
+  },
+  "emoji-test.txt": {
+    "title": "Unicode Emoji 18.0, emoji-test.txt (UTS #51 test data)",
+    "url": "https://www.unicode.org/Public/18.0.0/emoji/emoji-test.txt",
+    "revision": "Unicode 18.0.0",
+    "fetched": "2026-10-19",
+    "size": 671655,
+    "sha256": "8f3735cda1f92a779d78af67cf86066bb1f07143dc22f2ac29394d9bc57ab21a",
+    "licence": "Unicode License v3 (https://www.unicode.org/license.txt), see LICENSE-UNICODE"
   }
 }

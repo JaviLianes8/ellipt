@@ -6,6 +6,48 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-19
+
+First stable release, and the first one published on PyPI (0.1.0 to 0.2.1 were never
+uploaded there). The public API is now stable under Semantic Versioning: the names in
+`ellipt.__all__`, their signatures, parameter names and defaults, the fields of
+`Truncation`, the exceptions they raise, the units and the command line options.
+Changes against 0.2.1:
+
+### Changed
+
+- Every argument is checked before the text is examined. A marker larger than the limit
+  now raises `ValueError` even when the text fits (`truncate("hi", 2)` used to return
+  `"hi"`), and the command reports it before reading any input.
+- Stricter types: `ambiguous` must be an integer (a float such as `2.0` raises
+  `TypeError` instead of turning sizes into floats), `words` and `width_aware` must be
+  `bool` (`words="no"` used to mean word mode), and `unit=None` or `where=None` raise
+  `TypeError` instead of `ValueError`. Integer types other than `int` with `__index__`
+  are accepted for limits and `ambiguous`.
+- `iter_graphemes` names its parameter `text` (it was `s`) and raises `TypeError` for a
+  non-`str` argument at the call, not on the first `next()`.
+- A `str` subclass is measured as the plain string it holds and every string in the
+  result is a plain `str`.
+- Error messages are bounded: strings are quoted up to 40 characters and huge integers
+  are described by their size, instead of being repeated whole (a 100,000 character
+  `where` gave a 100,000 character message, and `-(10**5000)` failed inside `str()`).
+- `Truncation` and the public functions report `ellipt` as their module, so a pickled
+  `Truncation` no longer names a private module.
+- `shorten_path` runs in linear time and memory; it used to build every candidate
+  string, which needed gigabytes for a path with 50,000 directories. A UNC path with no
+  directory between share and file is no longer shortened to `\...\share\file`,
+  which read as a rooted path on the current drive.
+- Command line: usage errors exit with status 2 (input errors keep 1), messages are
+  bounded, `--tabsize` expands tabs by display columns (wide characters count as two),
+  and a closed standard input or output is reported instead of raising.
+
+### Added
+
+- Tests against the official Unicode `emoji-test.txt` (5,244 sequences) and against two
+  independent segmenters (`wcwidth` 0.9.2 and the ICU segmenter in Node.js), contract
+  tests that pin the public surface and every error path, and timing tests for hostile
+  input.
+
 ## [0.2.1]
 
 ### Changed

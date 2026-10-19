@@ -11,13 +11,6 @@ _ZWJ = "\u200d"
 _TAGS = range(0xE0020, 0xE0080)
 
 
-def check_ambiguous(ambiguous: int) -> int:
-    """Return ``ambiguous`` after checking it is 1 or 2."""
-    if isinstance(ambiguous, bool) or ambiguous not in (1, 2):
-        raise ValueError(f"ambiguous must be 1 or 2, not {ambiguous!r}")
-    return ambiguous
-
-
 def _code_width(code: int, ambiguous: int) -> int:
     width = code >> WIDTH_SHIFT
     return ambiguous if width == AMBIGUOUS else width
